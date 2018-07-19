@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
+	"github.com/jmoiron/sqlx"
 )
 
 type Stats struct {
@@ -15,11 +16,25 @@ type Stats struct {
 	TransactionTime  float64 `db:"xact_time"`
 	BytesReceived    float64 `db:"bytes_received"`
 	BytesSent        float64 `db:"bytes_sent"`
+	PoolStats        Pool
 	TimeStamp        time.Time
 	IsAggregated     bool
 }
 
 type DBStats map[string]Stats
+
+func (s *DBStats) getDelta(previous DBStats) DBStats {
+	result := make(DBStats)
+
+	for database, stats := range *s {
+		if _, ok := previous[database]; !ok {
+			continue
+		}
+		result[database] = stats.calculatePerSecond(previous[database])
+	}
+	return result
+
+}
 
 func (s *Stats) calculatePerSecond(p Stats) Stats {
 	duration := s.TimeStamp.Sub(p.TimeStamp).Nanoseconds()
@@ -121,4 +136,26 @@ func (s *Stats) createMetricDatum(
 		Unit:       unit,
 		Value:      &value,
 	}
+}
+
+func getStatsData(db *sqlx.DB) (DBStats, error) {
+	var stats []Stats
+	err := db.Select(&stats, `SHOW STATS_TOTALS`)
+	if err != nil {
+		return nil, err
+	}
+
+	dbStats := make(DBStats)
+	total := Stats{IsAggregated: true, TimeStamp: time.Now()}
+	for _, item := range stats {
+		if item.Database == "pgbouncer" {
+			continue
+		}
+
+		item.TimeStamp = time.Now()
+		total.add(item)
+		dbStats[item.Database] = item
+	}
+	dbStats[total.Database] = total
+	return dbStats, nil
 }

@@ -74,7 +74,7 @@ func main() {
 
 	cfg.Region = metadata.Region
 	cwService := cloudwatch.New(cfg)
-	stats := statsContext{}
+	stats := statusLog{}
 	log.Println("Running")
 	for {
 		collectStats(*databaseURL, *namespace, &stats, cwService)

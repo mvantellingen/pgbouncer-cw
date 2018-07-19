@@ -2,78 +2,74 @@ package main
 
 import (
 	"log"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/jmoiron/sqlx"
 )
 
-type statsContext struct {
-	current  DBStats
-	previous DBStats
+type statusLog struct {
+	current  *statusPoint
+	previous *statusPoint
 }
 
-func getData(db *sqlx.DB) (DBStats, error) {
-	var stats []Stats
-	err := db.Select(&stats, `SHOW STATS_TOTALS`)
+type statusPoint struct {
+	stats DBStats
+	pools DBPools
+}
+
+func getData(db *sqlx.DB) (*statusPoint, error) {
+	status := statusPoint{}
+	stats, err := getStatsData(db)
 	if err != nil {
 		return nil, err
 	}
+	status.stats = stats
 
-	dbStats := make(DBStats)
-	total := Stats{IsAggregated: true, TimeStamp: time.Now()}
-	for _, item := range stats {
-		if item.Database == "pgbouncer" {
-			continue
-		}
-
-		item.TimeStamp = time.Now()
-		total.add(item)
-		dbStats[item.Database] = item
+	pools, err := getPoolData(db)
+	if err != nil {
+		return nil, err
 	}
-	dbStats[total.Database] = total
-
-	db.Close()
-	return dbStats, nil
+	status.pools = pools
+	return &status, err
 }
 
-func processStats(previous DBStats, current DBStats) []cloudwatch.MetricDatum {
-	deltas := make(DBStats)
-
-	for database, stats := range current {
-		if _, ok := previous[database]; !ok {
-			continue
-		}
-		deltas[database] = stats.calculatePerSecond(previous[database])
-	}
+func processStats(previous statusPoint, current statusPoint) []cloudwatch.MetricDatum {
 
 	var metrics []cloudwatch.MetricDatum
+
+	// Generate metrics for delta of stats
+	deltas := current.stats.getDelta(previous.stats)
 	for _, stats := range deltas {
 		metrics = stats.addMetricData(metrics)
+	}
+
+	// Generate metrics for pools
+	for _, pool := range current.pools {
+		metrics = pool.addMetricData(metrics)
 	}
 	return metrics
 }
 
-func collectStats(databaseURL string, namespace string, stats *statsContext, svc *cloudwatch.CloudWatch) {
+func collectStats(databaseURL string, namespace string, status *statusLog, svc *cloudwatch.CloudWatch) {
 	db, err := newDB(databaseURL)
 	if err != nil {
 		log.Print("Error connecting to database:", err)
 		return
 	}
-	stats.current, err = getData(db)
+	status.current, err = getData(db)
 	if err != nil {
 		log.Print("Error connecting to database:", err)
 		return
 	}
 	db.Close()
 
-	if stats.previous != nil && stats.current != nil {
-		metrics := processStats(stats.previous, stats.current)
+	if status.previous != nil && status.current != nil {
+		metrics := processStats(*status.previous, *status.current)
 		pushMetrics(svc, namespace, metrics)
 	}
 
-	stats.previous = stats.current
-	stats.current = nil
+	status.previous = status.current
+	status.current = nil
 }
 
 func pushMetrics(svc *cloudwatch.CloudWatch, namespace string, metrics []cloudwatch.MetricDatum) {
