@@ -1,9 +1,11 @@
 package main
 
 import (
-	"flag"
 	"log"
+	"os"
 	"time"
+
+	"github.com/namsral/flag"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 
@@ -51,17 +53,22 @@ func getInstanceMetadata(cfg aws.Config) {
 
 func main() {
 	// Parse the command line arguments
-	instanceID := flag.String("instance-id", "", "Override default instance id.")
-	region := flag.String("region", "", "Override default AWS region.")
-	databaseURL := flag.String("url", "postgresql://pgbouncer@:6432/pgbouncer?host=/tmp&sslmode=disable", "The URL to the PGBouncerinstance.")
-	interval := flag.Int("interval", 60, "Interval between each run.")
-	namespace := flag.String("namespace", "PGBouncer", "The CloudWatch namespace")
-	detailed := flag.Bool("detailed", false, "If detailed metrics should be enabled")
-	flag.Parse()
+	fs := flag.NewFlagSetWithEnvPrefix(os.Args[0], "PGCW", 0)
+	instanceID := fs.String("instance-id", "", "Override default instance id.")
+	region := fs.String("region", "", "Override default AWS region.")
+	databaseURL := fs.String("url", "postgresql://pgbouncer@:6432/pgbouncer?host=/tmp&sslmode=disable", "The URL to the PGBouncerinstance.")
+	interval := fs.Int("interval", 60, "Interval between each run.")
+	namespace := fs.String("namespace", "PGBouncer", "The CloudWatch namespace")
+	detailed := fs.Bool("detailed", false, "If detailed metrics should be enabled")
+	fs.Parse(os.Args[1:])
 
 	cfg, err := external.LoadDefaultAWSConfig()
 	if err != nil {
 		panic("unable to load SDK config, " + err.Error())
+	}
+
+	if *detailed {
+		log.Println("Detailed metrics are enabled")
 	}
 
 	metadata.detailedMonitoring = *detailed
