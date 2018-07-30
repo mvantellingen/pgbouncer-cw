@@ -8,6 +8,7 @@ import (
 )
 
 func TestProcessStats(t *testing.T) {
+	metadata.detailedMonitoring = true
 	current := statusPoint{
 		stats: DBStats{
 			"test_1": Stats{

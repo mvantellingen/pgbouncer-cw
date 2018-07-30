@@ -15,8 +15,9 @@ import (
 )
 
 type instanceMetadata struct {
-	InstanceID string
-	Region     string
+	InstanceID         string
+	Region             string
+	detailedMonitoring bool
 }
 
 var metadata instanceMetadata
@@ -55,6 +56,7 @@ func main() {
 	databaseURL := flag.String("url", "postgresql://pgbouncer@:6432/pgbouncer?host=/tmp&sslmode=disable", "The URL to the PGBouncerinstance.")
 	interval := flag.Int("interval", 60, "Interval between each run.")
 	namespace := flag.String("namespace", "PGBouncer", "The CloudWatch namespace")
+	detailed := flag.Bool("detailed", false, "If detailed metrics should be enabled")
 	flag.Parse()
 
 	cfg, err := external.LoadDefaultAWSConfig()
@@ -62,6 +64,7 @@ func main() {
 		panic("unable to load SDK config, " + err.Error())
 	}
 
+	metadata.detailedMonitoring = *detailed
 	if *instanceID != "" {
 		metadata.InstanceID = *instanceID
 	} else {

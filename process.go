@@ -25,11 +25,13 @@ func getData(db *sqlx.DB) (*statusPoint, error) {
 	}
 	status.stats = stats
 
-	pools, err := getPoolData(db)
-	if err != nil {
-		return nil, err
+	if metadata.detailedMonitoring {
+		pools, err := getPoolData(db)
+		if err != nil {
+			return nil, err
+		}
+		status.pools = pools
 	}
-	status.pools = pools
 	return &status, err
 }
 
@@ -44,8 +46,10 @@ func processStats(previous statusPoint, current statusPoint) []cloudwatch.Metric
 	}
 
 	// Generate metrics for pools
-	for _, pool := range current.pools {
-		metrics = pool.addMetricData(metrics)
+	if metadata.detailedMonitoring {
+		for _, pool := range current.pools {
+			metrics = pool.addMetricData(metrics)
+		}
 	}
 	return metrics
 }

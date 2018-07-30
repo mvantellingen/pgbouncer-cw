@@ -94,12 +94,17 @@ func (s *Stats) addMetricData(dest []cloudwatch.MetricDatum) []cloudwatch.Metric
 		"WaitTime":   {s.WaitTime, cloudwatch.StandardUnitMilliseconds},
 	}
 
+	metricItems := []string{"QueryCount", "QueryTime"}
+	if metadata.detailedMonitoring {
+		metricItems = append(metricItems, "WaitTime")
+	}
+
 	if s.IsAggregated {
 		dimension := cloudwatch.Dimension{
 			Name:  stringPtr("Across all instances"),
 			Value: stringPtr("instances"),
 		}
-		for _, key := range []string{"QueryCount", "QueryTime", "WaitTime"} {
+		for _, key := range metricItems {
 			dest = append(dest, s.createMetricDatum(key, items[key].value, items[key].unit, dimension))
 		}
 
@@ -107,7 +112,7 @@ func (s *Stats) addMetricData(dest []cloudwatch.MetricDatum) []cloudwatch.Metric
 			Name:  stringPtr("InstanceId"),
 			Value: stringPtr(metadata.InstanceID),
 		}
-		for _, key := range []string{"QueryCount", "QueryTime", "WaitTime"} {
+		for _, key := range metricItems {
 			dest = append(dest, s.createMetricDatum(key, items[key].value, items[key].unit, dimension))
 		}
 	} else {
@@ -116,7 +121,7 @@ func (s *Stats) addMetricData(dest []cloudwatch.MetricDatum) []cloudwatch.Metric
 			Value: stringPtr(s.Database),
 		}
 
-		for _, key := range []string{"QueryCount", "QueryTime", "WaitTime"} {
+		for _, key := range metricItems {
 			dest = append(dest, s.createMetricDatum(key, items[key].value, items[key].unit, dimension))
 		}
 	}

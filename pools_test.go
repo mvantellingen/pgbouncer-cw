@@ -42,6 +42,7 @@ func TestGetPoolData(t *testing.T) {
 			MaxWait:        10,
 			MaxWaitUs:      11,
 			PoolMode:       "transaction",
+			TimeStamp:      stats["test_1"].TimeStamp,
 			IsAggregated:   false,
 		},
 		"test_2": Pool{
@@ -57,6 +58,7 @@ func TestGetPoolData(t *testing.T) {
 			MaxWait:        110,
 			MaxWaitUs:      111,
 			PoolMode:       "transaction",
+			TimeStamp:      stats["test_2"].TimeStamp,
 			IsAggregated:   false,
 		},
 		"": Pool{
@@ -72,6 +74,7 @@ func TestGetPoolData(t *testing.T) {
 			MaxWait:        120,
 			MaxWaitUs:      122,
 			PoolMode:       "",
+			TimeStamp:      stats[""].TimeStamp,
 			IsAggregated:   true,
 		}}
 
